@@ -4,7 +4,8 @@ from typing import NoReturn
 import numpy as np
 import pandas as pd
 
-# from linear_regression import LinearRegression
+from linear_regression import LinearRegression
+from sklearn.preprocessing import StandardScaler
 
 def preprocess_columns(X: pd.DataFrame):
     """
@@ -18,11 +19,27 @@ def preprocess_columns(X: pd.DataFrame):
     -------
     A clean, preprocessed version of the data
     """
-    
 
-    X = X.drop("long", axis=1)
-    X.loc[X["yr_renovated"] == 0, "yr_renovated"] = X["yr_built"]
     X["date"] = pd.to_datetime(X["date"]).astype("int64")/1e18
+
+
+    # scaler = StandardScaler()
+    # save only the colomns with good pearson correlation
+    # selected = [f for f in X.columns if abs(calc_pearson_corr(X[f],y)) > 0.1]
+    # X = X[selected]
+    # give more weight to features with better correlation
+    # for f in X.columns:
+    #     X.loc[X[f] > 0, f] = X[f] * abs(calc_pearson_corr(X[f],y))
+
+    # X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+
+    # X["sqft_living_squared"] = X["sqft_living"]**2
+    X["sqft_living_squared"] = X["sqft_living"]**2
+    X["sqft_above_squared"] = X["sqft_above"]**2
+    X.loc[X["yr_renovated"] == 0, "yr_renovated_set_built_if_zero"] = X["yr_built"]**2
+    X.loc[X["yr_renovated"] != 0, "yr_renovated_set_built_if_zero"] = X["yr_renovated"]**2
+    # X["date_by_year_built"] = X["date"] / X["yr_built"]
+    # X.loc[X["yr_renovated"] == 0, "yr_renovated"] = X["yr_built"]
     # Loop through rows and assign new IDs to NaNs
     for i in X.index:
         if pd.isna(X.at[i, "id"]):
@@ -47,6 +64,7 @@ def preprocess_train(X: pd.DataFrame, y: pd.Series):
 
 
     X = preprocess_columns(X)
+    # try:
     # Combine X and y into one DataFrame for consistent row filtering
     data = pd.concat([X, y.rename("__y__")], axis=1)
 
@@ -54,12 +72,17 @@ def preprocess_train(X: pd.DataFrame, y: pd.Series):
     data = data.replace([np.inf, -np.inf], np.nan).dropna()
     y = data["__y__"]
     X = data.drop(columns="__y__")
-    
+        
     # Keep only rows where date is non-negative
     valid_rows = X["date"] >= 0
     X = X[valid_rows]
     y = y[valid_rows]
+    # except KeyError:
+    #     raise ValueError("The DataFrame does not contain the expected columns.")
 
+    # trim price outliers
+    # X = X[(y > 0) & (y < 2_000_000)]
+    # y = y[(y > 0) & (y < 2_000_000)]
     return X, y
 
 
@@ -78,6 +101,28 @@ def preprocess_test(X: pd.DataFrame):
     X = preprocess_columns(X)
     return X
 
+
+def calc_pearson_corr(X: pd.DataFrame, y: pd.Series) -> pd.Series:
+    """
+    Calculate the Pearson correlation coefficient between each feature in X and the response y.
+    Parameters
+    ----------
+    X : DataFrame of shape (n_samples, n_features)
+        Design matrix of regression problem
+
+    y : array-like of shape (n_samples, )
+        Response vector to evaluate against
+
+    Returns
+    -------
+    pearson_corr : Series of shape (n_features,)
+        Pearson correlation coefficients between each feature and the response
+    """
+    std_x = X.std(ddof=1)
+    std_y = y.std(ddof=1)
+    cov_xy = X.cov(y)
+    
+    return  cov_xy / (std_x * std_y) if std_x != 0 and std_y != 0 else 0
 
 def feature_evaluation(
     X: pd.DataFrame, y: pd.Series, output_path: str = "."
@@ -104,11 +149,7 @@ def feature_evaluation(
 
     for feature in X.columns:
         x_feat = X[feature]
-        std_x = x_feat.std(ddof=1)
-        std_y = y.std(ddof=1)
-        cov_xy = x_feat.cov(y)
-        
-        pearson_corr = cov_xy / (std_x * std_y) if std_x != 0 and std_y != 0 else 0
+        pearson_corr = calc_pearson_corr(x_feat, y)
         plt.figure()
         plt.scatter(x_feat, y)
         # plt.ylim(0, 2_000_000)
@@ -171,7 +212,8 @@ def question_6_improvement_tracker(
     last_result = pd.DataFrame({
     "Percentage": [1.0],
     "Mean_Loss": [mean_losses[-1]],
-    "Std_Loss": [std_losses[-1]]
+    "Std_Loss": [std_losses[-1]],
+    "date": pd.to_datetime("today").strftime("%Y-%m-%d %H:%M:%S")
     })
 
     # אם הקובץ קיים - נטען אותו, נצרף שורה חדשה ונשמור
@@ -181,6 +223,8 @@ def question_6_improvement_tracker(
         new_data.to_csv(csv_path, index=False)
     else:
         last_result.to_csv(csv_path, index=False)
+
+    print("mean losss:", print(f"{mean_losses[-1]:.5e}"))
     
 
 def question_6_implementation(
