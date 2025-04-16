@@ -6,6 +6,7 @@ import pandas as pd
 
 from linear_regression import LinearRegression
 from sklearn.preprocessing import StandardScaler
+import tools
 
 def preprocess_columns(X: pd.DataFrame):
     """
@@ -20,9 +21,8 @@ def preprocess_columns(X: pd.DataFrame):
     A clean, preprocessed version of the data
     """
 
-    X["date"] = pd.to_datetime(X["date"]).astype("int64")/1e18
-
-
+    X["date"] = pd.to_datetime(X["date"])
+    # X = X.dropna(subset=["date"])
     # scaler = StandardScaler()
     # save only the colomns with good pearson correlation
     # selected = [f for f in X.columns if abs(calc_pearson_corr(X[f],y)) > 0.1]
@@ -34,10 +34,22 @@ def preprocess_columns(X: pd.DataFrame):
     # X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
     # X["sqft_living_squared"] = X["sqft_living"]**2
+    # remove low pearson correlation columns
+    # X = X.drop(columns=["id", "date"])
     X["sqft_living_squared"] = X["sqft_living"]**2
     X["sqft_above_squared"] = X["sqft_above"]**2
     X.loc[X["yr_renovated"] == 0, "yr_renovated_set_built_if_zero"] = X["yr_built"]**2
     X.loc[X["yr_renovated"] != 0, "yr_renovated_set_built_if_zero"] = X["yr_renovated"]**2
+    X["days_since_first_house"] = (X["date"] - X["date"].min()).dt.days
+
+    # scale up high corr columns
+    # X["grade"] = X["grade"] **4
+    # X["condition"] = X["condition"] * 10000
+    # X["view"] = X["view"] * 10000
+    # X["bedrooms_squared"] = X["bedrooms"] ** 4
+
+    # scale down low corr columns
+
     # X["date_by_year_built"] = X["date"] / X["yr_built"]
     # X.loc[X["yr_renovated"] == 0, "yr_renovated"] = X["yr_built"]
     # Loop through rows and assign new IDs to NaNs
@@ -45,6 +57,8 @@ def preprocess_columns(X: pd.DataFrame):
         if pd.isna(X.at[i, "id"]):
             new_id = X["id"].max() + 1
             X.at[i, "id"] = new_id
+
+    X["date"] = X["date"].astype("int64")/1e18
 
     return X
 
@@ -99,7 +113,25 @@ def preprocess_test(X: pd.DataFrame):
     A preprocessed version of the test data that matches the coefficients format.
     """
     X = preprocess_columns(X)
+    X = X.fillna(X.mean(numeric_only=True))
+    # since we dont remove lines, we'll just fill the missing values with the mean of the column
     return X
+
+def preprocess_test_y(y: pd.Series):
+    """
+    preprocess test data. You are not allowed to remove rows from X, but only edit its columns.
+    Parameters
+    ----------
+    y: pd.Series
+        the loaded data
+
+    Returns
+    -------
+    A preprocessed version of the test data that matches the coefficients format.
+    """
+    y = y.fillna(y.mean())
+    return y
+
 
 
 def calc_pearson_corr(X: pd.DataFrame, y: pd.Series) -> pd.Series:
@@ -189,18 +221,7 @@ def train_test_split(X: pd.DataFrame, y: pd.Series, test_size: float = 0.2):
     y_test : array-like of shape (n_test_samples,)
         Test response vector
     """
-    # Randomly shuffle the data
-    shuffled_indices = np.random.permutation(len(X))
-    X_shuffled = X.iloc[shuffled_indices]
-    y_shuffled = y.iloc[shuffled_indices]
-    # Calculate the split index
-    split_index = int(len(X) * (1 - test_size))
-    # Split the data into train and test sets
-    X_train = X_shuffled.iloc[:split_index]
-    y_train = y_shuffled.iloc[:split_index]
-    X_test = X_shuffled.iloc[split_index:]
-    y_test = y_shuffled.iloc[split_index:]
-    return X_train, y_train, X_test, y_test
+    return tools.train_test_split(X, y, test_size=test_size)
 
 def question_6_improvement_tracker(
     mean_losses: list,
@@ -216,7 +237,6 @@ def question_6_improvement_tracker(
     "date": pd.to_datetime("today").strftime("%Y-%m-%d %H:%M:%S")
     })
 
-    # אם הקובץ קיים - נטען אותו, נצרף שורה חדשה ונשמור
     if os.path.exists(csv_path):
         prev_data = pd.read_csv(csv_path)
         new_data = pd.concat([prev_data, last_result], ignore_index=True)
@@ -224,7 +244,8 @@ def question_6_improvement_tracker(
     else:
         last_result.to_csv(csv_path, index=False)
 
-    print("mean losss:", print(f"{mean_losses[-1]:.5e}"))
+    # print(f"mean losses: {mean_losses}")
+    print(f"mean loss: {mean_losses[-1]:.5e}")
     
 
 def question_6_implementation(
@@ -279,6 +300,7 @@ def question_6_implementation(
             model.fit(X_sampled.values, y_sampled.values)
             # print(model.coefs_)
             loss = model.loss(X_test.values, y_test.values)
+            print("loss: ", loss)
             losses.append(loss)
 
         mean_losses.append(np.mean(losses))
@@ -307,7 +329,7 @@ if __name__ == "__main__":
     df = pd.read_csv(csv_path)
     X, y = df.drop("price", axis=1), df.price
     # set random seed
-    np.random.seed(130)
+    np.random.seed(43)
 
     # Question 2 - split train test randomly to 80% train and 20% test
     X_train, y_train, X_test, y_test = train_test_split(X, y, test_size=0.2)
@@ -329,6 +351,7 @@ if __name__ == "__main__":
 
     # Question 5 - preprocess the test data
     X_test = preprocess_test(X_test)
+    # y_test = preprocess_test_y(y_test)
 
     # Question 6 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:

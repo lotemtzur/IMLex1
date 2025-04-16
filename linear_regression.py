@@ -111,4 +111,9 @@ class LinearRegression:
         if not self.fitted_:
             raise ValueError("Estimator has not been fitted yet")
         y_predicted = self.predict(X)
-        return np.mean((y - y_predicted) ** 2)
+        # print("Any NaNs in X_test?", np.isnan(y_predicted).any())
+        # print("Any NaNs in y_test?", np.isnan(y).any())
+
+        loss = np.mean((y - y_predicted) ** 2)
+        # print(f"DEBUG Loss: {loss}")
+        return loss
