@@ -130,6 +130,7 @@ def evalute_model_on_different_countries(df: pd.DataFrame) -> None:
 
     # evaluate the model on different countries
     countries = df["Country"].unique()
+    countries = countries[countries != "Israel"]
     losses = []
     for country in countries:
         country_df = df[df["Country"] == country]
