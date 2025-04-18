@@ -125,7 +125,7 @@ def evalute_model_on_different_countries(df: pd.DataFrame) -> None:
     israel_df = israel_df.drop(["Country", "City", "Date"], axis=1)
     X, y = israel_df.drop("Temp", axis=1), israel_df.Temp
     X = X["DayOfYear"].values
-    model = PolynomialFitting(k=3)
+    model = PolynomialFitting(k=5)
     model.fit(X, y)
 
     # evaluate the model on different countries
