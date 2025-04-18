@@ -158,7 +158,7 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str) -> NoRet
         tools.save_and_done_plot(filename=f"{output_path}/{feature}_vs_price.png")
 
 
-def train_test_split(X: pd.DataFrame, y: pd.Series, test_size: float = 0.2):
+def train_test_split(X: pd.DataFrame, y: pd.Series, test_size: float):
     """
     Split dataset into train and test set
     Parameters
@@ -169,7 +169,7 @@ def train_test_split(X: pd.DataFrame, y: pd.Series, test_size: float = 0.2):
     y : array-like of shape (n_samples, )
         Response vector to evaluate against
 
-    test_size : float (default 0.2)
+    test_size : float
         Proportion of the dataset to include in the test split
 
     Returns
@@ -269,8 +269,8 @@ if __name__ == "__main__":
     # set random seed
     np.random.seed(43)
 
-    # Question 2 - split train test randomly to 80% train and 20% test
-    X_train, y_train, X_test, y_test = train_test_split(X, y, test_size=0.2)
+    # Question 2 - split train test randomly to 75% train and 25% test
+    X_train, y_train, X_test, y_test = train_test_split(X, y, test_size=0.25)
 
     # Question 3 - preprocessing of housing prices train dataset
     X_train, y_train = preprocess_train(X_train, y_train)
