@@ -243,7 +243,6 @@ def fit_model_and_plot_loss(
         mean_losses.append(np.mean(losses))
         std_losses.append(np.std(losses))
 
-    print(f"loss: {mean_losses[-1]:.3f}")
     tools.config_plot(
         title="MSE vs Training Size",
         xlabel="Training Size (%)",
